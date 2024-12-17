@@ -8,6 +8,7 @@ struct ItemDTO: Hashable, Equatable, Sendable, Identifiable {
     var quantity: Int
     var duration: Int
     var limit: Int
+    var isOrdered: Bool = false
     
     var isUnderLimit: Bool {
         quantity <= limit
@@ -31,6 +32,21 @@ struct ItemDTO: Hashable, Equatable, Sendable, Identifiable {
         } else {
             return .green
         }
+    }
+    
+    var textColor: Color {
+        isOrdered ? .secondary : .primary
+    }
+    
+    var secondaryColor: Color {
+        isOrdered ? .secondary : .indigo.opacity(0.7)
+    }
+    
+    var cardBackgroundColor: Color {
+        if isOrdered {
+            return Color(.systemGray6)
+        }
+        return isUnderLimit ? Color(.systemIndigo).opacity(0.1) : Color(.systemBackground)
     }
 }
 

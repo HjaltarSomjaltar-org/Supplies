@@ -21,6 +21,11 @@ struct SuppliesApp: App {
         modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         dataHandler = DataHandler(modelContainer: modelContainer)
         itemsViewModel = ItemsViewModel(modelContainer: modelContainer, dataHandler: dataHandler)
+        
+        // Request notification authorization
+        Task {
+            try? await NotificationManager.shared.requestAuthorization()
+        }
      } catch {
         fatalError("Could not initialize ModelContainer")
      }
