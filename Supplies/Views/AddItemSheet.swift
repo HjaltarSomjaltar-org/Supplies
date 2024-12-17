@@ -54,7 +54,7 @@ struct AddItemSheet: View {
                     .padding(.vertical, 8)
                     
                     HStack {
-                        Label("Duration", systemImage: "clock")
+                        Label("Duration (days)", systemImage: "clock")
                             .foregroundStyle(.primary)
                         Spacer()
                         HStack(spacing: 20) {
@@ -65,8 +65,8 @@ struct AddItemSheet: View {
                             }
                             .buttonStyle(.plain)
                             
-                            Text("\(duration) days")
-                                .frame(minWidth: 70)
+                            Text("\(duration)")
+                                .frame(minWidth: 40)
                                 .font(.headline)
                                 .multilineTextAlignment(.center)
                             
