@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     let item: ItemDTO
     let onUpdate: (UUID, String, Date, Int, Int, Int) async throws -> Void
     
@@ -44,8 +45,9 @@ struct DetailView: View {
         .background(
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color(.systemBackground),
-                    Color(.systemIndigo).opacity(0.1)
+                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
+                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
+                    Color(.systemBackground)
                 ]),
                 startPoint: .bottom,
                 endPoint: .top

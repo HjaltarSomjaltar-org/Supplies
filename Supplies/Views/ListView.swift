@@ -202,6 +202,8 @@ struct StatusIndicator: View {
 }
 
 struct ListContent: View {
+    @Environment(\.colorScheme) private var colorScheme
+    
     let items: [ItemDTO]
     @Binding var selectedItem: ItemDTO?
     let onOrderStatusChanged: (ItemDTO, Bool) async -> Void
@@ -211,7 +213,9 @@ struct ListContent: View {
         ZStack {
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color(.systemIndigo).opacity(0.1),
+                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
+                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
+                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
                     Color(.systemBackground)
                 ]),
                 startPoint: .bottom,

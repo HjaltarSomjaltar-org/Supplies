@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AddItemSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     let onAdd: (String, Date, Int, Int, Int) async throws -> Void
     
     @State private var name: String = ""
@@ -122,8 +123,9 @@ struct AddItemSheet: View {
             .background(
                 LinearGradient(
                     gradient: Gradient(colors: [
-                        Color(.systemIndigo).opacity(0.1),
-                        Color(.systemBackground)
+                        Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
+                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
+                    Color(.systemBackground)
                     ]),
                     startPoint: .bottom,
                     endPoint: .top
