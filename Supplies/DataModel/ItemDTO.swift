@@ -7,11 +7,11 @@ struct ItemDTO: Hashable, Equatable, Sendable, Identifiable {
     var date: Date
     var quantity: Int
     var duration: Int
-    var limit: Int
+    var notifyDays: Int?
     var isOrdered: Bool = false
     
     var isUnderLimit: Bool {
-        quantity <= limit
+        quantity <= notifyDays ?? 0
     }
     
     var estimatedEmptyDate: Date {

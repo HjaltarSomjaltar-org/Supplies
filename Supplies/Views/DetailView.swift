@@ -4,24 +4,26 @@ struct DetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     let item: ItemDTO
-    let onUpdate: (UUID, String, Date, Int, Int, Int) async throws -> Void
+    let onUpdate: (UUID, String, Date, Int, Int, Int?) async throws -> Void
     
     @State private var name: String
     @State private var date: Date
     @State private var quantity: Int
     @State private var duration: Int
-    @State private var limit: Int
+    @State private var notifyDays: Int?
+    @State private var showCustomNotification: Bool
     @State private var error: Error?
     @State private var showError = false
     
-    init(item: ItemDTO, onUpdate: @escaping (UUID, String, Date, Int, Int, Int) async throws -> Void) {
+    init(item: ItemDTO, onUpdate: @escaping (UUID, String, Date, Int, Int, Int?) async throws -> Void) {
         self.item = item
         self.onUpdate = onUpdate
         _name = State(initialValue: item.name)
         _date = State(initialValue: item.date)
         _quantity = State(initialValue: item.quantity)
         _duration = State(initialValue: item.duration)
-        _limit = State(initialValue: item.limit)
+        _notifyDays = State(initialValue: item.notifyDays)
+        _showCustomNotification = State(initialValue: item.notifyDays != nil)
     }
     
     var body: some View {
@@ -35,9 +37,46 @@ struct DetailView: View {
             .listRowBackground(Color(.systemIndigo).opacity(0.1))
             
             Section {
-                Stepper("Quantity: \(quantity)", value: $quantity, in: 1...100)
-                Stepper("Duration (days): \(duration)", value: $duration, in: 1...365)
-                Stepper("Limit: \(limit)", value: $limit, in: 1...100)
+                Picker("Quantity", selection: $quantity) {
+                    ForEach(0...100, id: \.self) { number in
+                        Text("\(number)")
+                            .foregroundStyle(.indigo)
+                    }
+                }
+                .pickerStyle(.menu)
+                
+                Picker("Duration (days)", selection: $duration) {
+                    ForEach(1...365, id: \.self) { number in
+                        Text("\(number)")
+                            .foregroundStyle(.indigo)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            .listRowBackground(Color(.systemIndigo).opacity(0.1))
+            
+            Section {
+                Toggle("Custom Notification", isOn: $showCustomNotification)
+                    .tint(.indigo)
+                
+                if showCustomNotification {
+                    Picker("Notify before empty", selection: Binding(
+                        get: { notifyDays ?? 14 },
+                        set: { notifyDays = $0 }
+                    )) {
+                        ForEach(1...30, id: \.self) { days in
+                            Text("\(days) days")
+                                .foregroundStyle(.indigo)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+            } header: {
+                Text("Notifications")
+            } footer: {
+                Text(showCustomNotification ? 
+                     "Custom notification when supply runs low" : 
+                     "Uses default notification settings")
             }
             .listRowBackground(Color(.systemIndigo).opacity(0.1))
         }
@@ -45,12 +84,11 @@ struct DetailView: View {
         .background(
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
-                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
+                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.08 : 0.1),
                     Color(.systemBackground)
                 ]),
-                startPoint: .bottom,
-                endPoint: .top
+                startPoint: .top,
+                endPoint: .bottom
             )
         )
         .navigationTitle("Edit Item")
@@ -60,7 +98,14 @@ struct DetailView: View {
                 Button("Save") {
                     Task {
                         do {
-                            try await onUpdate(item.id, name, date, quantity, duration, limit)
+                            try await onUpdate(
+                                item.id,
+                                name,
+                                date,
+                                quantity,
+                                duration,
+                                showCustomNotification ? notifyDays : nil
+                            )
                             dismiss()
                         } catch {
                             self.error = error
@@ -69,7 +114,6 @@ struct DetailView: View {
                     }
                 }
                 .disabled(name.isEmpty)
-                .foregroundStyle(.indigo)
             }
         }
         .alert("Error", isPresented: $showError) {

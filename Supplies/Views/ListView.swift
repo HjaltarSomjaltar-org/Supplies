@@ -2,38 +2,28 @@ import SwiftUI
 import SwiftData
 
 struct ListView: View {
-    @State private var viewModel: ItemsViewModel
-    @Binding var itemsDTO: [ItemDTO]
-    @State private var showingAddSheet = false
-    @State private var selectedItem: ItemDTO?
-    @State private var error: Error?
-    @State private var showError = false
-    @State private var sortOrder: SortOrder = .name
-    
-    enum SortOrder {
-        case name
-        case emptyDate
-        
-        var title: String {
-            switch self {
-            case .name: "Sort by Name"
-            case .emptyDate: "Sort by Empty Date"
-            }
-        }
+    enum SortOption: String, CaseIterable {
+        case name = "Name"
+        case emptyDate = "Empty Date"
     }
     
+    @Environment(\.colorScheme) private var colorScheme
+    @Binding var itemsDTO: [ItemDTO]
+    @State private var selectedItem: ItemDTO?
+    @State private var showAddSheet = false
+    @State private var error: Error?
+    @State private var showError = false
+    @State private var sortOption = SortOption.emptyDate
+    
+    let viewModel: ItemsViewModel
+    
     var sortedItems: [ItemDTO] {
-        switch sortOrder {
+        switch sortOption {
         case .name:
             return itemsDTO.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
         case .emptyDate:
             return itemsDTO.sorted { $0.estimatedEmptyDate < $1.estimatedEmptyDate }
         }
-    }
-    
-    init(viewModel: ItemsViewModel, itemsDTO: Binding<[ItemDTO]>) {
-        _viewModel = State(initialValue: viewModel)
-        _itemsDTO = itemsDTO
     }
     
     var body: some View {
@@ -42,55 +32,75 @@ struct ListView: View {
                 items: sortedItems,
                 selectedItem: $selectedItem,
                 onOrderStatusChanged: updateOrderStatus,
-                onDelete: { item in
-                    Task {
-                        try? await viewModel.removeItem(id: item.id)
-                        await getItems()
+                onDelete: deleteItem
+            )
+            .navigationTitle("Supplies")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showAddSheet = true
+                    } label: {
+                        HStack {
+                            Text("Add item")
+                            Image(systemName: "plus")
+                        }
                     }
                 }
-            )
-            .navigationTitle("Your Supplies")
-            .toolbar {
-                ListToolbar(
-                    sortOrder: $sortOrder,
-                    showingAddSheet: $showingAddSheet
-                )
+                ToolbarItem(placement: .navigation) {
+                    Menu {
+                        ForEach(SortOption.allCases, id: \.self) { option in
+                            Button {
+                                sortOption = option
+                            } label: {
+                                Text(option.rawValue)
+                            }
+                        }
+                    } label: {
+                        Label("Sort", systemImage: "arrow.up.arrow.down")
+                    }
+                }
+            }
+            .sheet(isPresented: $showAddSheet) {
+                AddItemSheet { name, date, quantity, duration, notifyDays in
+                    try await addNewItem(
+                        name: name,
+                        date: date,
+                        quantity: quantity,
+                        duration: duration,
+                        notifyDays: notifyDays
+                    )
+                }
             }
             .task {
                 await getItems()
             }
-            .sheet(isPresented: $showingAddSheet) {
-                AddItemSheet { name, date, quantity, duration, limit in
-                    try await addNewItem(name: name, date: date, quantity: quantity, duration: duration, limit: limit)
-                }
-            }
-            .alert("Error", isPresented: $showError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(error?.localizedDescription ?? "Unknown error occurred")
+            .refreshable {
+                await getItems()
             }
         } detail: {
-            DetailContent(
-                selectedItem: selectedItem,
-                onUpdate: updateItem
-            )
+            NavigationStack {
+                DetailContent(
+                    selectedItem: selectedItem,
+                    onUpdate: updateItem
+                )
+            }
         }
     }
     
-    private func addNewItem(name: String, date: Date, quantity: Int, duration: Int, limit: Int) async throws {
-        let newItem = try await viewModel.addItem(name: name, date: date, quantity: quantity, duration: duration, limit: limit)
+    private func addNewItem(name: String, date: Date, quantity: Int, duration: Int, notifyDays: Int?) async throws {
+        let newItem = try await viewModel.addItem(name: name, date: date, quantity: quantity, duration: duration, notifyDays: notifyDays)
         itemsDTO.append(newItem)
         await NotificationManager.shared.scheduleNotifications(for: newItem)
     }
     
-    private func updateItem(id: UUID, name: String, date: Date, quantity: Int, duration: Int, limit: Int) async throws {
+    private func updateItem(id: UUID, name: String, date: Date, quantity: Int, duration: Int, notifyDays: Int?) async throws {
         let updatedItem = try await viewModel.updateItem(
             id: id,
             name: name,
             date: date,
             quantity: quantity,
             duration: duration,
-            limit: limit
+            notifyDays: notifyDays
         )
         if let index = itemsDTO.firstIndex(where: { $0.id == id }) {
             itemsDTO[index] = updatedItem
@@ -131,63 +141,94 @@ struct ListView: View {
             self.showError = true
         }
     }
+    
+    private func deleteItem(_ item: ItemDTO) async {
+        do {
+            try await viewModel.removeItem(id: item.id)
+            itemsDTO.removeAll { $0.id == item.id }
+        } catch {
+            self.error = error
+            self.showError = true
+        }
+    }
 }
 
 // Helper view for list items
 struct ItemRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let item: ItemDTO
     let onOrderStatusChanged: (Bool) async -> Void
+    let onDelete: (ItemDTO) async -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(item.name)
                     .font(.headline)
-                    .foregroundStyle(.primary)
-                Spacer()
-                StatusIndicator(item: item)
-            }
-            
-            HStack(spacing: 16) {
-                Label("\(item.quantity)", systemImage: "number")
-                    .foregroundStyle(.indigo.opacity(0.7))
-                Label("\(item.duration) days", systemImage: "clock")
-                    .foregroundStyle(.indigo.opacity(0.7))
-            }
-            .font(.subheadline)
-            
-            if item.daysUntilEmpty <= 14 {
-                HStack {
-                    Label("Empty on: \(item.estimatedEmptyDate.formatted(date: .abbreviated, time: .omitted))", 
-                          systemImage: "calendar")
-                        .font(.caption)
-                        .foregroundStyle(item.statusColor)
-                    Spacer()
-                    Button {
-                        Task {
-                            await onOrderStatusChanged(!item.isOrdered)
-                        }
-                    } label: {
-                        HStack {
-                            Image(systemName: item.isOrdered ? "checkmark.circle.fill" : "cart.badge.plus")
-                            Text(item.isOrdered ? "Ordered" : "Order")
-                        }
-                        .font(.caption)
-                        .frame(width: 85)
-                        .foregroundStyle(item.isOrdered ? .green : .indigo)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(item.isOrdered ? Color.green.opacity(0.2) : Color.indigo.opacity(0.2))
-                        )
+                    .foregroundStyle(colorScheme == .dark ? .white : .primary)
+                
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "number")
+                        Text("\(item.quantity)")
                     }
-                    .buttonStyle(.plain)
+                    .foregroundStyle(colorScheme == .dark ? .white : .indigo)
+                    .font(.subheadline)
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                        Text("\(item.daysUntilEmpty) days left")
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(colorScheme == .dark ? .white.opacity(0.8) : .secondary)
+                    
+                    if item.isOrdered {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Ordered")
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.green)
+                    }
                 }
             }
+            
+            Spacer()
+            
+            StatusIndicator(item: item)
+                .opacity(colorScheme == .dark ? 0.9 : 1.0)
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
+        .contentShape(Rectangle())
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                Task {
+                    await onDelete(item)
+                }
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            if item.isOrdered {
+                Button {
+                    Task {
+                        await onOrderStatusChanged(false)
+                    }
+                } label: {
+                    Label("Mark as Unordered", systemImage: "cart.badge.minus")
+                }
+                .tint(.red)
+            } else {
+                Button {
+                    Task {
+                        await onOrderStatusChanged(true)
+                    }
+                } label: {
+                    Label("Mark as Ordered", systemImage: "cart.fill")
+                }
+                .tint(.blue)
+            }
+        }
     }
 }
 
@@ -213,9 +254,7 @@ struct ListContent: View {
         ZStack {
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
-                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
-                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
+                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.08 : 0.1),
                     Color(.systemBackground)
                 ]),
                 startPoint: .bottom,
@@ -229,22 +268,18 @@ struct ListContent: View {
                         Task {
                             await onOrderStatusChanged(item, newValue)
                         }
+                    }, onDelete: { item in
+                        Task {
+                            await onDelete(item)
+                        }
                     })
                 }
                 .listRowBackground(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(item.cardBackgroundColor)
+                        .fill(Color(.systemIndigo).opacity(colorScheme == .dark ? 0.15 : 0.1))
                         .padding(.vertical, 4)
                 )
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) {
-                        Task {
-                            await onDelete(item)
-                        }
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                }
+                .foregroundStyle(colorScheme == .dark ? .white : .primary)
             }
             .scrollContentBackground(.hidden)
         }
@@ -252,21 +287,20 @@ struct ListContent: View {
 }
 
 struct ListToolbar: View {
-    @Binding var sortOrder: ListView.SortOrder
+    @Binding var sortOrder: ListView.SortOption
     @Binding var showingAddSheet: Bool
     
     var body: some View {
         Group {
             Menu {
-                Button(ListView.SortOrder.name.title) {
+                Button("Name") {
                     sortOrder = .name
                 }
-                Button(ListView.SortOrder.emptyDate.title) {
+                Button("Empty Date") {
                     sortOrder = .emptyDate
                 }
             } label: {
                 Label("Sort", systemImage: "arrow.up.arrow.down")
-                    .foregroundStyle(.indigo)
             }
             
             Button {
@@ -274,7 +308,6 @@ struct ListToolbar: View {
             } label: {
                 Image(systemName: "plus.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(.indigo)
             }
         }
     }
@@ -282,7 +315,7 @@ struct ListToolbar: View {
 
 struct DetailContent: View {
     let selectedItem: ItemDTO?
-    let onUpdate: (UUID, String, Date, Int, Int, Int) async throws -> Void
+    let onUpdate: (UUID, String, Date, Int, Int, Int?) async throws -> Void
     
     var body: some View {
         if let item = selectedItem {

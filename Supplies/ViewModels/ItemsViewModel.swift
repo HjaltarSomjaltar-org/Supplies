@@ -16,16 +16,16 @@ final class ItemsViewModel: Sendable {
         return try await dataHandler.getItems(with: fetchDescriptor)
     }
     
-    func addItem(name: String, date: Date, quantity: Int, duration: Int, limit: Int) async throws -> ItemDTO {
-        try await dataHandler.addItem(name: name, date: date, quantity: quantity, duration: duration, limit: limit)
+    func addItem(name: String, date: Date, quantity: Int, duration: Int, notifyDays: Int?) async throws -> ItemDTO {
+        try await dataHandler.addItem(name: name, date: date, quantity: quantity, duration: duration, notifyDays: notifyDays)
     }
     
     func removeItem(id: UUID) async throws {
         try await dataHandler.removeItem(id: id)
     }
     
-    func updateItem(id: UUID, name: String, date: Date, quantity: Int, duration: Int, limit: Int) async throws -> ItemDTO {
-        try await dataHandler.updateItem(id: id, name: name, date: date, quantity: quantity, duration: duration, limit: limit)
+    func updateItem(id: UUID, name: String, date: Date, quantity: Int, duration: Int, notifyDays: Int?) async throws -> ItemDTO {
+        try await dataHandler.updateItem(id: id, name: name, date: date, quantity: quantity, duration: duration, notifyDays: notifyDays)
     }
     
     func updateOrderStatus(id: UUID, isOrdered: Bool) async throws -> ItemDTO {

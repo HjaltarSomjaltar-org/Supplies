@@ -14,9 +14,14 @@ struct TabBar: View {
 
     var body: some View {
        TabView {
-        ListView(viewModel: viewModel, itemsDTO: $itemsDTO)
+           ListView(itemsDTO: $itemsDTO, viewModel: viewModel)
             .tabItem {
                 Label("Items", systemImage: "list.bullet")
+            }
+        
+        SettingsView()
+            .tabItem {
+                Label("Settings", systemImage: "gear")
             }
        }
     }

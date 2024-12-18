@@ -10,6 +10,7 @@ import SwiftData
 
 @main
 struct SuppliesApp: App {
+    @StateObject private var themeManager = ThemeManager.shared
     private let modelContainer: ModelContainer
     private let dataHandler: DataHandler
     private let itemsViewModel: ItemsViewModel
@@ -34,6 +35,7 @@ struct SuppliesApp: App {
     var body: some Scene {
         WindowGroup {
             TabBar(viewModel: itemsViewModel)
+                .preferredColorScheme(themeManager.colorScheme)
         }
     }
 }

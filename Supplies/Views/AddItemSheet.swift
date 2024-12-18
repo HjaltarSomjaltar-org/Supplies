@@ -3,119 +3,69 @@ import SwiftUI
 struct AddItemSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
-    let onAdd: (String, Date, Int, Int, Int) async throws -> Void
     
-    @State private var name: String = ""
-    @State private var date: Date = .now
-    @State private var quantity: Int = 1
-    @State private var duration: Int = 7
-    @State private var limit: Int = 5
-    @State private var error: Error?
-    @State private var showError = false
+    let onAdd: (String, Date, Int, Int, Int?) async throws -> Void
+    
+    @State private var name = ""
+    @State private var date = Date()
+    @State private var quantity = 1
+    @State private var duration = 30
+    @State private var notifyDays: Int?
+    @State private var showCustomNotification = false
     
     var body: some View {
         NavigationStack {
             Form {
                 Section {
                     TextField("Name", text: $name)
-                        .textInputAutocapitalization(.words)
-                        .padding(.vertical, 8)
+                    DatePicker("Date", selection: $date)
+                        .tint(.indigo)
+                }
+                .listRowBackground(Color(.systemIndigo).opacity(colorScheme == .dark ? 0.15 : 0.1))
+                
+                Section {
+                    Picker("Quantity", selection: $quantity) {
+                        ForEach(0...100, id: \.self) { number in
+                            Text("\(number)")
+                                .foregroundStyle(.indigo)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    
+                    Picker("Duration (days)", selection: $duration) {
+                        ForEach(1...365, id: \.self) { number in
+                            Text("\(number)")
+                                .foregroundStyle(.indigo)
+                        }
+                        .pickerStyle(.menu)
+                    }
+                } header: {
+                    Text("Supply Details")
                 }
                 .listRowBackground(Color(.systemIndigo).opacity(0.1))
                 
                 Section {
-                    DatePicker("Start Date", selection: $date, displayedComponents: .date)
+                    Toggle("Custom Notification", isOn: $showCustomNotification)
                         .tint(.indigo)
                     
-                    HStack {
-                        Label("Quantity", systemImage: "number")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        HStack(spacing: 20) {
-                            Button(action: { quantity = max(1, quantity - 1) }) {
-                                Image(systemName: "minus.circle.fill")
-                                    .font(.title2)
+                    if showCustomNotification {
+                        Picker("Notify before empty", selection: Binding(
+                            get: { notifyDays ?? 14 },
+                            set: { notifyDays = $0 }
+                        )) {
+                            ForEach(1...30, id: \.self) { days in
+                                Text("\(days) days")
                                     .foregroundStyle(.indigo)
                             }
-                            .buttonStyle(.plain)
-                            
-                            Text("\(quantity)")
-                                .frame(minWidth: 40)
-                                .font(.headline)
-                                .multilineTextAlignment(.center)
-                            
-                            Button(action: { quantity = min(100, quantity + 1) }) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(.indigo)
-                            }
-                            .buttonStyle(.plain)
                         }
+                        .pickerStyle(.menu)
                     }
-                    .padding(.vertical, 8)
-                    
-                    HStack {
-                        Label("Duration (days)", systemImage: "clock")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        HStack(spacing: 20) {
-                            Button(action: { duration = max(1, duration - 1) }) {
-                                Image(systemName: "minus.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(.indigo)
-                            }
-                            .buttonStyle(.plain)
-                            
-                            Text("\(duration)")
-                                .frame(minWidth: 40)
-                                .font(.headline)
-                                .multilineTextAlignment(.center)
-                            
-                            Button(action: { duration = min(365, duration + 1) }) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(.indigo)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.vertical, 8)
-                } header: {
-                    Text("Details")
-                }
-                .listRowBackground(Color(.systemIndigo).opacity(0.1))
-                
-                Section {
-                    HStack {
-                        Label("Warning Limit", systemImage: "bell.badge")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        HStack(spacing: 20) {
-                            Button(action: { limit = max(1, limit - 1) }) {
-                                Image(systemName: "minus.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(.indigo)
-                            }
-                            .buttonStyle(.plain)
-                            
-                            Text("\(limit)")
-                                .frame(minWidth: 40)
-                                .font(.headline)
-                                .multilineTextAlignment(.center)
-                            
-                            Button(action: { limit = min(100, limit + 1) }) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(.indigo)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.vertical, 8)
                 } header: {
                     Text("Notifications")
                 } footer: {
-                    Text("You'll be notified when quantity drops below this limit")
+                    Text(showCustomNotification ? 
+                         "Custom notification when supply runs low" : 
+                         "Uses default notification settings")
                 }
                 .listRowBackground(Color(.systemIndigo).opacity(0.1))
             }
@@ -123,44 +73,41 @@ struct AddItemSheet: View {
             .background(
                 LinearGradient(
                     gradient: Gradient(colors: [
-                        Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
-                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.3 : 0.1),
-                    Color(.systemBackground)
+                        Color(.systemIndigo).opacity(colorScheme == .dark ? 0.08 : 0.1),
+                        Color(.systemBackground)
                     ]),
-                    startPoint: .bottom,
-                    endPoint: .top
+                    startPoint: .top,
+                    endPoint: .bottom
                 )
             )
-            .navigationTitle("Add Supply")
+            .navigationTitle("Add Item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundStyle(.red)
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
                         Task {
                             do {
-                                try await onAdd(name, date, quantity, duration, limit)
+                                try await onAdd(
+                                    name,
+                                    date,
+                                    quantity, 
+                                    duration, 
+                                    showCustomNotification ? notifyDays : nil
+                                )
                                 dismiss()
                             } catch {
-                                self.error = error
-                                self.showError = true
+                                print("Error adding item: \(error)")
                             }
                         }
                     }
                     .disabled(name.isEmpty)
-                    .foregroundStyle(.indigo)
                 }
-            }
-            .alert("Error", isPresented: $showError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(error?.localizedDescription ?? "Unknown error occurred")
             }
         }
     }

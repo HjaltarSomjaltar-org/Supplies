@@ -11,16 +11,16 @@ final class Item {
     var date: Date
     var quantity: Int
     var duration: Int
-    var limit: Int
+    var notifyDays: Int?
     var isOrdered: Bool
 
-    init(id: UUID, name: String, date: Date, quantity: Int, duration: Int, limit: Int, isOrdered: Bool = false) {
+    init(id: UUID, name: String, date: Date, quantity: Int, duration: Int, notifyDays: Int? = nil, isOrdered: Bool = false) {
         self.id = id
         self.name = name
         self.date = date
         self.quantity = quantity
         self.duration = duration
-        self.limit = limit
+        self.notifyDays = notifyDays
         self.isOrdered = isOrdered
     }
 }
