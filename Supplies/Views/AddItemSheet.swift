@@ -21,7 +21,7 @@ struct AddItemSheet: View {
                     DatePicker("Date", selection: $date)
                         .tint(.indigo)
                 }
-                .listRowBackground(Color(.systemIndigo).opacity(colorScheme == .dark ? 0.15 : 0.1))
+                .listRowBackground(Color(.systemIndigo).opacity(0.1))
                 
                 Section {
                     Picker("Quantity", selection: $quantity) {
@@ -37,8 +37,8 @@ struct AddItemSheet: View {
                             Text("\(number)")
                                 .foregroundStyle(.indigo)
                         }
-                        .pickerStyle(.menu)
                     }
+                    .pickerStyle(.menu)
                 } header: {
                     Text("Supply Details")
                 }
