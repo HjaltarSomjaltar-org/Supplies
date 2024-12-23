@@ -162,7 +162,7 @@ struct ItemRow: View {
     
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text(item.name)
                     .font(.headline)
                     .foregroundStyle(colorScheme == .dark ? .white : .primary)
@@ -191,7 +191,7 @@ struct ItemRow: View {
                         .foregroundStyle(.green)
                     }
                 }
-            }
+            }.padding(.vertical, 3)
             
             Spacer()
             

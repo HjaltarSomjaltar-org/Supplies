@@ -14,6 +14,7 @@ struct DetailView: View {
     @State private var showCustomNotification: Bool
     @State private var error: Error?
     @State private var showError = false
+    @State private var dateWasModified = false
     
     init(item: ItemDTO, onUpdate: @escaping (UUID, String, Date, Int, Int, Int?) async throws -> Void) {
         self.item = item
@@ -24,6 +25,7 @@ struct DetailView: View {
         _duration = State(initialValue: item.duration)
         _notifyDays = State(initialValue: item.notifyDays)
         _showCustomNotification = State(initialValue: item.notifyDays != nil)
+        _dateWasModified = State(initialValue: false)
     }
     
     var body: some View {
@@ -33,6 +35,9 @@ struct DetailView: View {
                     .textInputAutocapitalization(.words)
                 DatePicker("Date", selection: $date)
                     .tint(.indigo)
+                    .onChange(of: date) { _, _ in
+                        dateWasModified = true
+                    }
             }
             .listRowBackground(Color(.systemIndigo).opacity(0.1))
             
@@ -96,22 +101,7 @@ struct DetailView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
-                    Task {
-                        do {
-                            try await onUpdate(
-                                item.id,
-                                name,
-                                date,
-                                quantity,
-                                duration,
-                                showCustomNotification ? notifyDays : nil
-                            )
-                            dismiss()
-                        } catch {
-                            self.error = error
-                            self.showError = true
-                        }
-                    }
+                    updateAndDismiss()
                 }
                 .disabled(name.isEmpty)
             }
@@ -120,6 +110,25 @@ struct DetailView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(error?.localizedDescription ?? "Unknown error occurred")
+        }
+    }
+    
+    private func updateAndDismiss() {
+        Task {
+            do {
+                try await onUpdate(
+                    item.id,
+                    name,
+                    dateWasModified ? date : Date(),
+                    quantity,
+                    duration,
+                    showCustomNotification ? notifyDays : nil
+                )
+                dismiss()
+            } catch {
+                self.error = error
+                self.showError = true
+            }
         }
     }
 } 

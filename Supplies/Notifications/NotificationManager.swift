@@ -25,20 +25,17 @@ final class NotificationManager: @unchecked Sendable {
         guard !item.isOrdered else { return }
         
         @AppStorage("notificationDays") var defaultNotificationDays = 14
-        
-        // Use custom notification days if set, otherwise use default
         let notificationDays = item.notifyDays ?? defaultNotificationDays
         
-        // Initial notification
-        if item.daysUntilEmpty > notificationDays {
+        // Only schedule if days until empty is less than or equal to notification days
+        if item.daysUntilEmpty <= notificationDays {
             let content = UNMutableNotificationContent()
             content.title = "Supply Running Low"
-            content.body = "\(item.name) will be empty in \(notificationDays) days"
+            content.body = "\(item.name) will be empty in \(item.daysUntilEmpty) days"
             content.sound = .default
             
-            let notifyDate = Calendar.current.date(byAdding: .day, value: -notificationDays, to: item.estimatedEmptyDate) ?? .now
-            let components = Calendar.current.dateComponents([.year, .month, .day], from: notifyDate)
-            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            // Schedule notification for now since we're already in the notification window
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
             
             let request = UNNotificationRequest(
                 identifier: "\(item.id)-initial",
