@@ -6,17 +6,22 @@ struct ItemDTO: Hashable, Equatable, Sendable, Identifiable {
     var name: String
     var date: Date
     var quantity: Int
-    var duration: Int
+    var duration: Double
     var notifyDays: Int?
     var isOrdered: Bool = false
+    var lastUsed: Date
+    var supplySize: Int
+    var durationAdjustmentFactor: Double = 0.7 // 70% old, 30% new
+    var minimumUpdatePercentage: Double = 0.6 // 60% minimum
     
     var isUnderLimit: Bool {
         quantity <= notifyDays ?? 0
     }
     
+    //TODO
     var estimatedEmptyDate: Date {
-        let daysUntilEmpty = quantity * duration
-        return Calendar.current.date(byAdding: .day, value: daysUntilEmpty, to: date) ?? date
+        let daysUntilEmpty = Double(quantity) * duration
+        return Calendar.current.date(byAdding: .day, value: Int(daysUntilEmpty), to: lastUsed) ?? lastUsed
     }
     
     var daysUntilEmpty: Int {

@@ -14,6 +14,11 @@ struct ListView: View {
     @State private var error: Error?
     @State private var showError = false
     @State private var sortOption = SortOption.emptyDate
+    @State private var itemToDelete: ItemDTO?
+    @State private var showDeleteConfirmation = false
+    @State private var itemToEdit: ItemDTO?
+    @State private var itemToUse: ItemDTO?
+    @State private var showUseConfirmation = false
     
     let viewModel: ItemsViewModel
     
@@ -27,12 +32,15 @@ struct ListView: View {
     }
     
     var body: some View {
-        NavigationSplitView {
+        NavigationStack {
             ListContent(
                 items: sortedItems,
                 selectedItem: $selectedItem,
                 onOrderStatusChanged: updateOrderStatus,
-                onDelete: deleteItem
+                onStockUp: stockUp,
+                onEdit: editItem,
+                onDelete: deleteItem,
+                onUse: useItem
             )
             .navigationTitle("Supplies")
             .toolbar {
@@ -61,14 +69,49 @@ struct ListView: View {
                 }
             }
             .sheet(isPresented: $showAddSheet) {
-                AddItemSheet { name, date, quantity, duration, notifyDays in
-                    try await addNewItem(
-                        name: name,
-                        date: date,
-                        quantity: quantity,
-                        duration: duration,
-                        notifyDays: notifyDays
-                    )
+                AddItemSheet { name, date, quantity, duration, notifyDays, lastUsed, supplySize, durationAdjustmentFactor, minimumUpdatePercentage in
+                    try await addNewItem(name: name, date: date, quantity: quantity, duration: duration, notifyDays: notifyDays, lastUsed: lastUsed, supplySize: supplySize, durationAdjustmentFactor: durationAdjustmentFactor, minimumUpdatePercentage: minimumUpdatePercentage)
+                }
+            }
+            .sheet(item: $itemToEdit) { item in
+                NavigationStack {
+                    if let currentItem = itemsDTO.first(where: { $0.id == item.id }) {
+                        DetailView(item: currentItem) { id, name, date, quantity, duration, notifyDays, lastUsed, supplySize, durationAdjustmentFactor, minimumUpdatePercentage in
+                            try await updateItem(id: id, name: name, date: date, quantity: quantity, duration: duration, notifyDays: notifyDays, lastUsed: lastUsed, supplySize: supplySize, durationAdjustmentFactor: durationAdjustmentFactor, minimumUpdatePercentage: minimumUpdatePercentage)
+                        }
+                    } else {
+                        DetailView(item: item) { id, name, date, quantity, duration, notifyDays, lastUsed, supplySize, durationAdjustmentFactor, minimumUpdatePercentage in
+                            try await updateItem(id: id, name: name, date: date, quantity: quantity, duration: duration, notifyDays: notifyDays, lastUsed: lastUsed, supplySize: supplySize, durationAdjustmentFactor: durationAdjustmentFactor, minimumUpdatePercentage: minimumUpdatePercentage)
+                        }
+                    }
+                }
+            }
+            .alert("Delete Item", isPresented: $showDeleteConfirmation) {
+                Button("Cancel", role: .cancel) {
+                    itemToDelete = nil
+                }
+                Button("Delete", role: .destructive) {
+                    Task {
+                        await confirmDelete()
+                    }
+                }
+            } message: {
+                if let item = itemToDelete {
+                    Text("Are you sure you want to delete '\(item.name)'? This action cannot be undone.")
+                }
+            }
+            .alert("Confirm Usage", isPresented: $showUseConfirmation) {
+                Button("Cancel", role: .cancel) {
+                    itemToUse = nil
+                }
+                Button("Use anyway", role: .destructive) {
+                    Task {
+                        await confirmUse()
+                    }
+                }
+            } message: {
+                if let item = itemToUse {
+                    Text("You're using '\(item.name)' much earlier than expected. Are you sure you used this product?")
                 }
             }
             .task {
@@ -77,30 +120,32 @@ struct ListView: View {
             .refreshable {
                 await getItems()
             }
-        } detail: {
-            NavigationStack {
-                DetailContent(
-                    selectedItem: selectedItem,
-                    onUpdate: updateItem
-                )
+            .alert("Error", isPresented: $showError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(error?.localizedDescription ?? "Unknown error occurred")
             }
         }
     }
     
-    private func addNewItem(name: String, date: Date, quantity: Int, duration: Int, notifyDays: Int?) async throws {
-        let newItem = try await viewModel.addItem(name: name, date: date, quantity: quantity, duration: duration, notifyDays: notifyDays)
+    private func addNewItem(name: String, date: Date, quantity: Int, duration: Double, notifyDays: Int?, lastUsed: Date, supplySize: Int, durationAdjustmentFactor: Double, minimumUpdatePercentage: Double) async throws {
+        let newItem = try await viewModel.addItem(name: name, date: date, quantity: quantity, duration: duration, notifyDays: notifyDays, lastUsed: lastUsed, supplySize: supplySize, durationAdjustmentFactor: durationAdjustmentFactor, minimumUpdatePercentage: minimumUpdatePercentage)
         itemsDTO.append(newItem)
         await NotificationManager.shared.scheduleNotifications(for: newItem)
     }
     
-    private func updateItem(id: UUID, name: String, date: Date, quantity: Int, duration: Int, notifyDays: Int?) async throws {
+    private func updateItem(id: UUID, name: String, date: Date, quantity: Int, duration: Double, notifyDays: Int?, lastUsed: Date, supplySize: Int, durationAdjustmentFactor: Double, minimumUpdatePercentage: Double) async throws {
         let updatedItem = try await viewModel.updateItem(
             id: id,
             name: name,
             date: date,
             quantity: quantity,
             duration: duration,
-            notifyDays: notifyDays
+            notifyDays: notifyDays,
+            lastUsed: lastUsed,
+            supplySize: supplySize,
+            durationAdjustmentFactor: durationAdjustmentFactor,
+            minimumUpdatePercentage: minimumUpdatePercentage
         )
         if let index = itemsDTO.firstIndex(where: { $0.id == id }) {
             itemsDTO[index] = updatedItem
@@ -142,23 +187,109 @@ struct ListView: View {
         }
     }
     
-    private func deleteItem(_ item: ItemDTO) async {
+    private func stockUp(_ item: ItemDTO) async {
         do {
-            try await viewModel.removeItem(id: item.id)
-            itemsDTO.removeAll { $0.id == item.id }
+            let updatedItem = try await viewModel.stockUp(id: item.id)
+            if let index = itemsDTO.firstIndex(where: { $0.id == item.id }) {
+                itemsDTO[index] = updatedItem
+                await NotificationManager.shared.scheduleNotifications(for: updatedItem)
+            }
         } catch {
             self.error = error
             self.showError = true
         }
+    }
+    
+    private func deleteItem(_ item: ItemDTO) {
+        itemToDelete = item
+        showDeleteConfirmation = true
+    }
+    
+    private func editItem(_ item: ItemDTO) {
+        itemToEdit = item
+    }
+    
+    private func confirmDelete() async {
+        guard let item = itemToDelete else { return }
+        
+        do {
+            try await viewModel.removeItem(id: item.id)
+            itemsDTO.removeAll { $0.id == item.id }
+            await NotificationManager.shared.removeNotifications(for: item.id)
+        } catch {
+            self.error = error
+            self.showError = true
+        }
+        
+        itemToDelete = nil
+    }
+    
+    private func useItem(_ item: ItemDTO) async {
+        do {
+            let result = try await viewModel.useItem(id: item.id)
+            
+            if result.requiresConfirmation {
+                itemToUse = item
+                showUseConfirmation = true
+            } else {
+                if let index = itemsDTO.firstIndex(where: { $0.id == item.id }) {
+                    itemsDTO[index] = result.item
+                    await NotificationManager.shared.scheduleNotifications(for: result.item)
+                    
+                    // If edit sheet is open for this item, refresh it
+                    if let editingItem = itemToEdit, editingItem.id == item.id {
+                        itemToEdit = nil
+                        // Small delay to allow sheet to close, then reopen with updated data
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            itemToEdit = result.item
+                        }
+                    }
+                }
+            }
+        } catch {
+            self.error = error
+            self.showError = true
+        }
+    }
+    
+    private func confirmUse() async {
+        guard let item = itemToUse else { return }
+        
+        do {
+            let result = try await viewModel.useItem(id: item.id, forceUse: true)
+            if let index = itemsDTO.firstIndex(where: { $0.id == item.id }) {
+                itemsDTO[index] = result.item
+                await NotificationManager.shared.scheduleNotifications(for: result.item)
+                
+                // If edit sheet is open for this item, refresh it
+                if let editingItem = itemToEdit, editingItem.id == item.id {
+                    itemToEdit = nil
+                    // Small delay to allow sheet to close, then reopen with updated data
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        itemToEdit = result.item
+                    }
+                }
+            }
+        } catch {
+            self.error = error
+            self.showError = true
+        }
+        
+        itemToUse = nil
     }
 }
 
 // Helper view for list items
 struct ItemRow: View {
     @Environment(\.colorScheme) private var colorScheme
+    @State private var showUseButton = false
+    @State private var timer: Timer?
     let item: ItemDTO
     let onOrderStatusChanged: (Bool) async -> Void
-    let onDelete: (ItemDTO) async -> Void
+    let onStockUp: (ItemDTO) async -> Void
+    let onEdit: (ItemDTO) -> Void
+    let onDelete: (ItemDTO) -> Void
+    let onUse: (ItemDTO) async -> Void
     
     var body: some View {
         HStack {
@@ -195,15 +326,88 @@ struct ItemRow: View {
             
             Spacer()
             
+            // Animated Use Button
+            ZStack {
+                // Invisible larger tap area
+                Rectangle()
+                    .fill(Color.clear)
+                    .frame(width: 44, height: 44)
+                
+                Image(systemName: "minus.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.red)
+            }
+            .opacity(showUseButton ? 1.0 : 0.0)
+            .scaleEffect(showUseButton ? 1.0 : 0.5)
+            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: showUseButton)
+            .onTapGesture {
+                guard showUseButton else { return }
+                
+                // Cancel timer since button is being used
+                timer?.invalidate()
+                timer = nil
+                
+                // Haptic feedback
+                let impact = UIImpactFeedbackGenerator(style: .medium)
+                impact.impactOccurred()
+                
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showUseButton = false
+                }
+                Task {
+                    await onUse(item)
+                }
+            }
+            .padding(.trailing, 8)
+            
             StatusIndicator(item: item)
                 .opacity(colorScheme == .dark ? 0.9 : 1.0)
         }
         .contentShape(Rectangle())
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button(role: .destructive) {
-                Task {
-                    await onDelete(item)
+        .onTapGesture {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                showUseButton.toggle()
+            }
+            
+            // Cancel existing timer
+            timer?.invalidate()
+            
+            // Start new timer if button is now visible
+            if showUseButton {
+                timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
+                    DispatchQueue.main.async {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showUseButton = false
+                        }
+                        timer = nil
+                    }
                 }
+            }
+        }
+        .onDisappear {
+            // Clean up timer when view disappears
+            timer?.invalidate()
+            timer = nil
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button {
+                Task {
+                    await onStockUp(item)
+                }
+            } label: {
+                Label("Stock Up +\(item.supplySize)", systemImage: "plus.circle.fill")
+            }
+            .tint(.green)
+            
+            Button {
+                onEdit(item)
+            } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            .tint(.blue)
+            
+            Button(role: .destructive) {
+                onDelete(item)
             } label: {
                 Label("Delete", systemImage: "trash")
             }
@@ -248,7 +452,10 @@ struct ListContent: View {
     let items: [ItemDTO]
     @Binding var selectedItem: ItemDTO?
     let onOrderStatusChanged: (ItemDTO, Bool) async -> Void
-    let onDelete: (ItemDTO) async -> Void
+    let onStockUp: (ItemDTO) async -> Void
+    let onEdit: (ItemDTO) -> Void
+    let onDelete: (ItemDTO) -> Void
+    let onUse: (ItemDTO) async -> Void
     
     var body: some View {
         ZStack {
@@ -263,17 +470,23 @@ struct ListContent: View {
             .ignoresSafeArea()
             
             List(items, selection: $selectedItem) { item in
-                NavigationLink(value: item) {
-                    ItemRow(item: item, onOrderStatusChanged: { newValue in
-                        Task {
-                            await onOrderStatusChanged(item, newValue)
-                        }
-                    }, onDelete: { item in
-                        Task {
-                            await onDelete(item)
-                        }
-                    })
-                }
+                ItemRow(item: item, onOrderStatusChanged: { newValue in
+                    Task {
+                        await onOrderStatusChanged(item, newValue)
+                    }
+                }, onStockUp: { item in
+                    Task {
+                        await onStockUp(item)
+                    }
+                }, onEdit: { item in
+                    onEdit(item)
+                }, onDelete: { item in
+                    onDelete(item)
+                }, onUse: { item in
+                    Task {
+                        await onUse(item)
+                    }
+                })
                 .listRowBackground(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color(.systemIndigo).opacity(colorScheme == .dark ? 0.15 : 0.1))
@@ -308,26 +521,6 @@ struct ListToolbar: View {
             } label: {
                 Image(systemName: "plus.circle.fill")
                     .font(.title2)
-            }
-        }
-    }
-}
-
-struct DetailContent: View {
-    let selectedItem: ItemDTO?
-    let onUpdate: (UUID, String, Date, Int, Int, Int?) async throws -> Void
-    
-    var body: some View {
-        if let item = selectedItem {
-            DetailView(item: item, onUpdate: onUpdate)
-        } else {
-            VStack {
-                Image(systemName: "square.stack.3d.up")
-                    .font(.system(size: 60))
-                    .foregroundStyle(.indigo.opacity(0.3))
-                Text("Select an item")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
             }
         }
     }
