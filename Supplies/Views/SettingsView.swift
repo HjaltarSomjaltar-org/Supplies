@@ -17,15 +17,16 @@ struct SettingsView: View {
                             showNotificationHelp = true
                         } label: {
                             Image(systemName: "info.circle")
+                                .foregroundColor(Color(red: 0.8, green: 0.7, blue: 0.9))
                         }
                         
                         Picker("Default Notification", selection: $notificationDays) {
                             ForEach(1...30, id: \.self) { days in
                                 Text("\(days) days")
-                                    .foregroundStyle(.indigo)
                             }
                         }
                         .pickerStyle(.menu)
+                        .tint(Color(red: 0.8, green: 0.7, blue: 0.9))
                     }
                 } header: {
                     Text("Notifications")
@@ -36,7 +37,12 @@ struct SettingsView: View {
                 
                 Section {
                     Toggle(isOn: $useSystemTheme) {
-                        Label("Use System Theme", systemImage: "iphone")
+                        HStack{
+                            Text("Use System Theme")
+                            Image(systemName: "iphone")
+                                .foregroundColor(Color(red: 0.8, green: 0.7, blue: 0.9))
+                        }
+
                     }
                     .tint(.indigo)
                     

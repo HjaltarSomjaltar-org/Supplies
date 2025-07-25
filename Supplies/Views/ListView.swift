@@ -473,13 +473,14 @@ struct ListContent: View {
     
     var body: some View {
         ZStack {
-            LinearGradient(
+            RadialGradient(
                 gradient: Gradient(colors: [
-                    Color(.systemIndigo).opacity(colorScheme == .dark ? 0.08 : 0.1),
+                    Color(red: 51/255, green: 28/255, blue: 74/255).opacity(0.3),
                     Color(.systemBackground)
                 ]),
-                startPoint: .bottom,
-                endPoint: .top
+                center: .bottom,
+                startRadius: 100,
+                endRadius: 600
             )
             .ignoresSafeArea()
             

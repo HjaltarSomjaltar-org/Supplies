@@ -62,10 +62,10 @@ struct DetailView: View {
                 Picker("Quantity", selection: $quantity) {
                     ForEach(0...100, id: \.self) { number in
                         Text("\(number)")
-                            .foregroundStyle(.indigo)
                     }
                 }
                 .pickerStyle(.menu)
+                .tint(.indigo)
                 
                 VStack(alignment: .leading) {
                     Text("Duration (days)")
@@ -78,10 +78,10 @@ struct DetailView: View {
                 Picker("Supply Size", selection: $supplySize) {
                     ForEach(1...50, id: \.self) { number in
                         Text("\(number)")
-                            .foregroundStyle(.indigo)
                     }
                 }
                 .pickerStyle(.menu)
+                .tint(.indigo)
             } header: {
                 Text("Supply Details")
             } footer: {
@@ -100,10 +100,10 @@ struct DetailView: View {
                     )) {
                         ForEach(1...30, id: \.self) { days in
                             Text("\(days) days")
-                                .foregroundStyle(.indigo)
                         }
                     }
                     .pickerStyle(.menu)
+                    .tint(.indigo)
                 }
             } header: {
                 Text("Notifications")
@@ -161,8 +161,11 @@ struct DetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") {
+                Button(action: {
                     updateAndDismiss()
+                }) {
+                    Text("Save")
+                        .foregroundColor(Color(red: 0.8, green: 0.7, blue: 0.9))
                 }
                 .disabled(name.isEmpty)
             }

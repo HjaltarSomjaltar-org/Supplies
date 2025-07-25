@@ -38,10 +38,10 @@ struct AddItemSheet: View {
                     Picker("Quantity", selection: $quantity) {
                         ForEach(0...100, id: \.self) { number in
                             Text("\(number)")
-                                .foregroundStyle(.indigo)
                         }
                     }
                     .pickerStyle(.menu)
+                    .tint(.indigo)
                     
                     VStack(alignment: .leading) {
                         Text("Duration (days)")
@@ -54,10 +54,10 @@ struct AddItemSheet: View {
                     Picker("Supply Size", selection: $supplySize) {
                         ForEach(1...50, id: \.self) { number in
                             Text("\(number)")
-                                .foregroundStyle(.indigo)
                         }
                     }
                     .pickerStyle(.menu)
+                    .tint(.indigo)
                 } header: {
                     Text("Supply Details")
                 } footer: {
@@ -76,16 +76,16 @@ struct AddItemSheet: View {
                         )) {
                             ForEach(1...30, id: \.self) { days in
                                 Text("\(days) days")
-                                    .foregroundStyle(.indigo)
                             }
                         }
                         .pickerStyle(.menu)
+                        .tint(.indigo)
                     }
                 } header: {
                     Text("Notifications")
                 } footer: {
-                    Text(showCustomNotification ? 
-                         "Custom notification when supply runs low" : 
+                    Text(showCustomNotification ?
+                         "Custom notification when supply runs low" :
                          "Uses default notification settings")
                 }
                 .listRowBackground(Color(.systemIndigo).opacity(0.1))
@@ -140,6 +140,7 @@ struct AddItemSheet: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .tint(Color(red: 0.8, green: 0.7, blue: 0.9))
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
@@ -149,8 +150,8 @@ struct AddItemSheet: View {
                                 try await onAdd(
                                     name,
                                     date,
-                                    quantity, 
-                                    parseDuration(duration), 
+                                    quantity,
+                                    parseDuration(duration),
                                     showCustomNotification ? notifyDays : nil,
                                     lastUsed,
                                     supplySize,
@@ -164,6 +165,7 @@ struct AddItemSheet: View {
                         }
                     }
                     .disabled(name.isEmpty)
+                    .tint(Color(red: 0.8, green: 0.7, blue: 0.9))
                 }
             }
         }
