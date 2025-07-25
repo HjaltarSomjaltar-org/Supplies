@@ -19,6 +19,7 @@ struct ListView: View {
     @State private var itemToEdit: ItemDTO?
     @State private var itemToUse: ItemDTO?
     @State private var showUseConfirmation = false
+    @State private var showSettings = false
     
     let viewModel: ItemsViewModel
     
@@ -52,6 +53,7 @@ struct ListView: View {
                             Text("Add item")
                             Image(systemName: "plus")
                         }
+                        .foregroundColor(Color(red: 0.8, green: 0.7, blue: 0.9))
                     }
                 }
                 ToolbarItem(placement: .navigation) {
@@ -64,9 +66,21 @@ struct ListView: View {
                             }
                         }
                     } label: {
-                        Label("Sort", systemImage: "arrow.up.arrow.down")
+                        Image(systemName: "arrow.up.arrow.down")
+                            .foregroundColor(Color(red: 0.8, green: 0.7, blue: 0.9))
                     }
                 }
+                ToolbarItem(placement: .navigation) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gear")
+                            .foregroundColor(Color(red: 0.8, green: 0.7, blue: 0.9))
+                    }
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
             .sheet(isPresented: $showAddSheet) {
                 AddItemSheet { name, date, quantity, duration, notifyDays, lastUsed, supplySize, durationAdjustmentFactor, minimumUpdatePercentage in
@@ -490,9 +504,10 @@ struct ListContent: View {
                 .listRowBackground(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color(.systemIndigo).opacity(colorScheme == .dark ? 0.15 : 0.1))
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 6)
                 )
                 .foregroundStyle(colorScheme == .dark ? .white : .primary)
+                .listRowSeparator(.hidden)
             }
             .scrollContentBackground(.hidden)
         }

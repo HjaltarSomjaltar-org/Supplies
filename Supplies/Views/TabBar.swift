@@ -13,16 +13,9 @@ struct TabBar: View {
     @State var itemsDTO = [ItemDTO]()
 
     var body: some View {
-       TabView {
-           ListView(itemsDTO: $itemsDTO, viewModel: viewModel)
-            .tabItem {
-                Label("Items", systemImage: "list.bullet")
-            }
-        
-        SettingsView()
-            .tabItem {
-                Label("Settings", systemImage: "gear")
-            }
-       }
+       ListView(itemsDTO: $itemsDTO, viewModel: viewModel)
+        .tabItem {
+            Label("Items", systemImage: "list.bullet")
+        }
     }
 }

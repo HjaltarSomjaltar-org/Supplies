@@ -91,7 +91,7 @@ struct AddItemSheet: View {
                 .listRowBackground(Color(.systemIndigo).opacity(0.1))
                 
                 Section {
-                    DatePicker("Last Used", selection: $lastUsed, displayedComponents: [.date])
+                    DatePicker("Last Used", selection: $lastUsed)
                         .tint(.indigo)
                     
                     VStack(alignment: .leading) {
