@@ -13,7 +13,9 @@ final class ItemsViewModel: Sendable {
     
     func fetchItems(with predicate: Predicate<Item>) async throws -> [ItemDTO] {
        let fetchDescriptor = FetchDescriptor<Item>(predicate: predicate, sortBy: [SortDescriptor(\Item.date, order: .reverse)])
-        return try await dataHandler.getItems(with: fetchDescriptor)
+        let items = try await dataHandler.getItems(with: fetchDescriptor)
+        await dataHandler.saveTop3ItemsForWidget(items)
+        return items
     }
     
     func addItem(name: String, date: Date, quantity: Int, duration: Double, notifyDays: Int?, lastUsed: Date, supplySize: Int, durationAdjustmentFactor: Double = 0.7, minimumUpdatePercentage: Double = 0.6) async throws -> ItemDTO {

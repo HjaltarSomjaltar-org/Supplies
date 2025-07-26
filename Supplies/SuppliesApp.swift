@@ -18,7 +18,7 @@ struct SuppliesApp: App {
     init() {
      do {
         let schema = Schema([Item.self])
-        let configuration = ModelConfiguration(schema: schema)
+        let configuration = ModelConfiguration(groupContainer: .identifier("group.supplies.com"))
         modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         dataHandler = DataHandler(modelContainer: modelContainer)
         itemsViewModel = ItemsViewModel(modelContainer: modelContainer, dataHandler: dataHandler)

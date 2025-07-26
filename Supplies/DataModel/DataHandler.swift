@@ -262,4 +262,24 @@ actor DataHandler: Storage {
             minimumUpdatePercentage: itemToUpdate.minimumUpdatePercentage
         ), false)
     }
+    
+    /// Saves the top 3 items with the lowest daysUntilEmpty to UserDefaults for the widget
+    func saveTop3ItemsForWidget(_ items: [ItemDTO]) async {
+        let top3 = items.sorted { $0.daysUntilEmpty < $1.daysUntilEmpty }.prefix(3)
+        let widgetItems = top3.map { item in
+            WidgetItem(id: item.id.uuidString, name: item.name, daysUntilEmpty: item.daysUntilEmpty)
+        }
+        
+        if let data = try? JSONEncoder().encode(widgetItems) {
+            let userDefaults = UserDefaults(suiteName: "group.supplies.com")
+            userDefaults?.set(data, forKey: "widgetTop3Items")
+        }
+    }
+}
+
+// Widget item structure for UserDefaults sharing
+struct WidgetItem: Codable {
+    let id: String
+    let name: String
+    let daysUntilEmpty: Int
 }
