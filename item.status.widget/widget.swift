@@ -31,12 +31,12 @@ struct Provider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
         Task {
             var entries: [SimpleEntry] = []
-            
             let items = try await getTop3Items()
             let entry = SimpleEntry(date: Date(), items: items)
             entries.append(entry)
-            
-            let timeline = Timeline(entries: entries, policy: .after(.now.addingTimeInterval(60 * 5)))
+            // Widget wird alle 15 Minuten aktualisiert
+            let nextUpdate = Date().addingTimeInterval(15 * 60)
+            let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
             completion(timeline)
         }
     }
@@ -70,7 +70,7 @@ struct widgetEntryView: View {
     var entry: Provider.Entry
     
     var body: some View {
-        VStack(alignment: .center, spacing: 8) { // zentriert
+        VStack(alignment: .center, spacing: 8) {
             if entry.items.isEmpty {
                 Text("No items available")
                     .font(.caption)
@@ -78,34 +78,36 @@ struct widgetEntryView: View {
                     .padding(.top, 8)
             } else {
                 ForEach(entry.items) { item in
-                    HStack(alignment: .center) { // zentriert
-                        Text(item.name)
-                            .font(.caption2)
-                            .bold()
-                            .foregroundStyle(colorScheme == .dark ? .white : .primary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                        Spacer()
-                        HStack(spacing: 4) {
-                            Text("\(item.daysUntilEmpty)")
+                    Link(destination: URL(string: "supplies://edit?id=\(item.id)")!) {
+                        HStack(alignment: .center) {
+                            Text(item.name)
                                 .font(.caption2)
                                 .bold()
-                                .foregroundStyle(colorScheme == .dark ? .white.opacity(0.8) : .secondary)
-                            Image(systemName: "clock")
-                                .font(.caption2)
-                                .foregroundColor(item.daysUntilEmpty <= 7 ? .red : item.daysUntilEmpty <= 14 ? .orange : .green)
+                                .foregroundStyle(colorScheme == .dark ? .white : .primary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                            Spacer()
+                            HStack(spacing: 4) {
+                                Text("\(item.daysUntilEmpty)")
+                                    .font(.caption2)
+                                    .bold()
+                                    .foregroundStyle(colorScheme == .dark ? .white.opacity(0.8) : .secondary)
+                                Image(systemName: "clock")
+                                    .font(.caption2)
+                                    .foregroundColor(item.daysUntilEmpty <= 7 ? .red : item.daysUntilEmpty <= 14 ? .orange : .green)
+                            }
                         }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color(.systemIndigo).opacity(colorScheme == .dark ? 0.1 : 0.2))
+                        )
                     }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(.systemIndigo).opacity(colorScheme == .dark ? 0.1 : 0.2))
-                    )
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center) // zentriert
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .containerBackground(for: .widget) {
             RadialGradient(
                 gradient: Gradient(colors: [
@@ -131,6 +133,11 @@ struct widget: Widget {
         .description("Shows the top 3 supplies with the lowest days remaining.")
     }
 }
+
+// Hinweis für die App (nicht im Widget!):
+// Nach jeder Änderung an den Items in deiner App:
+// import WidgetKit
+// WidgetCenter.shared.reloadAllTimelines()
 
 #Preview(as: .systemLarge) {
     widget()

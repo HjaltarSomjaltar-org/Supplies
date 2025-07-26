@@ -18,6 +18,8 @@ actor DataHandler: Storage {
         item.lastUsed = lastUsed
         modelContext.insert(item)
         try modelContext.save()
+        let allItems = try await getItems(with: FetchDescriptor<Item>())
+        await saveTop3ItemsForWidget(allItems)
         return ItemDTO(id: item.id, name: item.name, date: item.date, quantity: item.quantity, duration: item.duration, notifyDays: item.notifyDays, lastUsed: item.lastUsed, supplySize: item.supplySize, durationAdjustmentFactor: item.durationAdjustmentFactor, minimumUpdatePercentage: item.minimumUpdatePercentage)
     }
     
@@ -27,6 +29,8 @@ actor DataHandler: Storage {
         }
         try modelContext.delete(model: Item.self, where: predicate)
         try modelContext.save()
+        let allItems = try await getItems(with: FetchDescriptor<Item>())
+        await saveTop3ItemsForWidget(allItems)
     }
     
     func updateItem(id: UUID, name: String, date: Date, quantity: Int, duration: Double, notifyDays: Int?, lastUsed: Date, supplySize: Int, durationAdjustmentFactor: Double, minimumUpdatePercentage: Double) async throws -> ItemDTO {
@@ -52,7 +56,8 @@ actor DataHandler: Storage {
         itemToUpdate.minimumUpdatePercentage = minimumUpdatePercentage
         
         try modelContext.save()
-        
+        let allItems = try await getItems(with: FetchDescriptor<Item>())
+        await saveTop3ItemsForWidget(allItems)
         return ItemDTO(
             id: itemToUpdate.id, 
             name: itemToUpdate.name, 
@@ -100,6 +105,8 @@ actor DataHandler: Storage {
         itemToUpdate.lastUsed = Date()
         try modelContext.save()
         
+        let allItems = try await getItems(with: FetchDescriptor<Item>())
+        await saveTop3ItemsForWidget(allItems)
         return ItemDTO(id: itemToUpdate.id, 
                       name: itemToUpdate.name, 
                       date: itemToUpdate.date, 
@@ -127,7 +134,8 @@ actor DataHandler: Storage {
         
         itemToUpdate.isOrdered = isOrdered
         try modelContext.save()
-        
+        let allItems = try await getItems(with: FetchDescriptor<Item>())
+        await saveTop3ItemsForWidget(allItems)
         return ItemDTO(id: itemToUpdate.id, 
                       name: itemToUpdate.name, 
                       date: itemToUpdate.date, 
@@ -156,7 +164,8 @@ actor DataHandler: Storage {
         itemToUpdate.quantity += itemToUpdate.supplySize
         itemToUpdate.isOrdered = false
         try modelContext.save()
-        
+        let allItems = try await getItems(with: FetchDescriptor<Item>())
+        await saveTop3ItemsForWidget(allItems)
         return ItemDTO(id: itemToUpdate.id, 
                       name: itemToUpdate.name, 
                       date: itemToUpdate.date, 
@@ -247,7 +256,8 @@ actor DataHandler: Storage {
         }
         
         try modelContext.save()
-        
+        let allItems = try await getItems(with: FetchDescriptor<Item>())
+        await saveTop3ItemsForWidget(allItems)
         return (ItemDTO(
             id: itemToUpdate.id,
             name: itemToUpdate.name,

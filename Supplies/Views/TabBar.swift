@@ -10,7 +10,7 @@ import SwiftData
 
 struct TabBar: View {
     let viewModel: ItemsViewModel
-    @State var itemsDTO = [ItemDTO]()
+    @Binding var itemsDTO: [ItemDTO]
 
     var body: some View {
        ListView(itemsDTO: $itemsDTO, viewModel: viewModel)
