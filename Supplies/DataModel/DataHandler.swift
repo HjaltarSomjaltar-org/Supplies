@@ -18,8 +18,7 @@ actor DataHandler: Storage {
         item.lastUsed = lastUsed
         modelContext.insert(item)
         try modelContext.save()
-        let allItems = try await getItems(with: FetchDescriptor<Item>())
-        await saveTop3ItemsForWidget(allItems)
+        await didUpdateItems()
         return ItemDTO(id: item.id, name: item.name, date: item.date, quantity: item.quantity, duration: item.duration, notifyDays: item.notifyDays, lastUsed: item.lastUsed, supplySize: item.supplySize, durationAdjustmentFactor: item.durationAdjustmentFactor, minimumUpdatePercentage: item.minimumUpdatePercentage)
     }
     
@@ -29,8 +28,7 @@ actor DataHandler: Storage {
         }
         try modelContext.delete(model: Item.self, where: predicate)
         try modelContext.save()
-        let allItems = try await getItems(with: FetchDescriptor<Item>())
-        await saveTop3ItemsForWidget(allItems)
+        await didUpdateItems()
     }
     
     func updateItem(id: UUID, name: String, date: Date, quantity: Int, duration: Double, notifyDays: Int?, lastUsed: Date, supplySize: Int, durationAdjustmentFactor: Double, minimumUpdatePercentage: Double) async throws -> ItemDTO {
@@ -56,8 +54,7 @@ actor DataHandler: Storage {
         itemToUpdate.minimumUpdatePercentage = minimumUpdatePercentage
         
         try modelContext.save()
-        let allItems = try await getItems(with: FetchDescriptor<Item>())
-        await saveTop3ItemsForWidget(allItems)
+        await didUpdateItems()
         return ItemDTO(
             id: itemToUpdate.id, 
             name: itemToUpdate.name, 
@@ -105,8 +102,7 @@ actor DataHandler: Storage {
         itemToUpdate.lastUsed = Date()
         try modelContext.save()
         
-        let allItems = try await getItems(with: FetchDescriptor<Item>())
-        await saveTop3ItemsForWidget(allItems)
+        await didUpdateItems()
         return ItemDTO(id: itemToUpdate.id, 
                       name: itemToUpdate.name, 
                       date: itemToUpdate.date, 
@@ -134,8 +130,7 @@ actor DataHandler: Storage {
         
         itemToUpdate.isOrdered = isOrdered
         try modelContext.save()
-        let allItems = try await getItems(with: FetchDescriptor<Item>())
-        await saveTop3ItemsForWidget(allItems)
+        await didUpdateItems()
         return ItemDTO(id: itemToUpdate.id, 
                       name: itemToUpdate.name, 
                       date: itemToUpdate.date, 
@@ -164,8 +159,7 @@ actor DataHandler: Storage {
         itemToUpdate.quantity += itemToUpdate.supplySize
         itemToUpdate.isOrdered = false
         try modelContext.save()
-        let allItems = try await getItems(with: FetchDescriptor<Item>())
-        await saveTop3ItemsForWidget(allItems)
+        await didUpdateItems()
         return ItemDTO(id: itemToUpdate.id, 
                       name: itemToUpdate.name, 
                       date: itemToUpdate.date, 
@@ -206,12 +200,10 @@ actor DataHandler: Storage {
         print("   - Current duration: \(itemToUpdate.duration)")
         print("   - Force use: \(forceUse)")
         
-        // Calculate the minimum allowed duration using the configurable percentage
         let minimumDuration = itemToUpdate.duration * itemToUpdate.minimumUpdatePercentage
         let requiresConfirmation = Double(daysSinceLastUsed) < minimumDuration && !forceUse
         
         if requiresConfirmation {
-            // Return current item without changes, but indicate confirmation is needed
             return (ItemDTO(
                 id: itemToUpdate.id,
                 name: itemToUpdate.name,
@@ -227,16 +219,12 @@ actor DataHandler: Storage {
             ), true)
         }
         
-        // Update the item
         itemToUpdate.quantity = max(0, itemToUpdate.quantity - 1)
         itemToUpdate.lastUsed = currentDate
         
-        // Dynamically adjust duration using configurable adjustment factor
-        // Always update duration if there's any time difference (even less than a day)
         if daysSinceLastUsed > 0 || hoursSinceLastUsed >= 1 {
-            let actualDays = daysSinceLastUsed > 0 ? Double(daysSinceLastUsed) : 1.0 // Minimum 1 day for calculation
+            let actualDays = daysSinceLastUsed > 0 ? Double(daysSinceLastUsed) : 1.0
             
-            // Use configurable adjustment factor
             let oldWeight = itemToUpdate.durationAdjustmentFactor
             let newWeight = 1.0 - oldWeight
             
@@ -256,8 +244,7 @@ actor DataHandler: Storage {
         }
         
         try modelContext.save()
-        let allItems = try await getItems(with: FetchDescriptor<Item>())
-        await saveTop3ItemsForWidget(allItems)
+        await didUpdateItems()
         return (ItemDTO(
             id: itemToUpdate.id,
             name: itemToUpdate.name,
@@ -273,13 +260,19 @@ actor DataHandler: Storage {
         ), false)
     }
     
-    /// Saves the top 3 items with the lowest daysUntilEmpty to UserDefaults for the widget
-    func saveTop3ItemsForWidget(_ items: [ItemDTO]) async {
-        let top3 = items.sorted { $0.daysUntilEmpty < $1.daysUntilEmpty }.prefix(3)
-        let widgetItems = top3.map { item in
-            WidgetItem(id: item.id.uuidString, name: item.name, daysUntilEmpty: item.daysUntilEmpty)
+    private func didUpdateItems() async {
+        let allItems = try? await getItems(with: FetchDescriptor<Item>())
+        if let items = allItems {
+            await syncWidgetItems(items)
         }
-        
+    }
+
+    /// Zentraler Sync für Widget-Items
+    func syncWidgetItems(_ items: [ItemDTO]) async {
+        let top3 = items.sorted { $0.estimatedEmptyDate < $1.estimatedEmptyDate }.prefix(3)
+        let widgetItems = top3.map { item in
+            WidgetItem(id: item.id.uuidString, name: item.name, emptyDate: item.estimatedEmptyDate)
+        }
         if let data = try? JSONEncoder().encode(widgetItems) {
             let userDefaults = UserDefaults(suiteName: "group.supplies.com")
             userDefaults?.set(data, forKey: "widgetTop3Items")
@@ -291,5 +284,5 @@ actor DataHandler: Storage {
 struct WidgetItem: Codable {
     let id: String
     let name: String
-    let daysUntilEmpty: Int
+    let emptyDate: Date // Datum, wann das Item leer ist
 }

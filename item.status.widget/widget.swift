@@ -12,7 +12,7 @@ import SwiftUI
 struct WidgetItem: Identifiable, Codable {
     let id: String
     let name: String
-    let daysUntilEmpty: Int
+    let emptyDate: Date // Datum, wann das Item leer ist
 }
 
 struct Provider: TimelineProvider {
@@ -43,19 +43,23 @@ struct Provider: TimelineProvider {
     
     @MainActor func getTop3Items() async throws -> [WidgetItem] {
         let userDefaults = UserDefaults(suiteName: "group.supplies.com")
-        guard let data = userDefaults?.data(forKey: "widgetTop3Items"),
-              let items = try? JSONDecoder().decode([WidgetItem].self, from: data) else {
-            // Return sample data if no shared data is available
-            return getPreviewItems()
+        guard let data = userDefaults?.data(forKey: "widgetTop3Items") else {
+            print("⚠️ [Widget] Keine Daten unter 'widgetTop3Items' gefunden.")
+            return []
         }
+        guard let items = try? JSONDecoder().decode([WidgetItem].self, from: data) else {
+            print("⚠️ [Widget] Fehler beim Decodieren der WidgetItems.")
+            return []
+        }
+        print("✅ [Widget] Geladene Items: \(items.count)")
         return items
     }
     
     private func getPreviewItems() -> [WidgetItem] {
         return [
-            WidgetItem(id: "1", name: "Toilet Paper", daysUntilEmpty: 2),
-            WidgetItem(id: "2", name: "Coffee Beans", daysUntilEmpty: 5),
-            WidgetItem(id: "3", name: "Dish Soap", daysUntilEmpty: 8)
+            WidgetItem(id: "1", name: "Toilet Paper", emptyDate: Calendar.current.date(byAdding: .day, value: 2, to: Date())!),
+            WidgetItem(id: "2", name: "Coffee Beans", emptyDate: Calendar.current.date(byAdding: .day, value: 5, to: Date())!),
+            WidgetItem(id: "3", name: "Dish Soap", emptyDate: Calendar.current.date(byAdding: .day, value: 8, to: Date())!)
         ]
     }
 }
@@ -68,6 +72,14 @@ struct SimpleEntry: TimelineEntry {
 struct widgetEntryView: View {
     @Environment(\.colorScheme) private var colorScheme
     var entry: Provider.Entry
+    
+    // Hilfsfunktion für verbleibende Tage
+    private func daysLeft(until date: Date) -> Int {
+        let fromDate = Calendar.current.startOfDay(for: Date())
+        let toDate = Calendar.current.startOfDay(for: date)
+        let components = Calendar.current.dateComponents([.day], from: fromDate, to: toDate)
+        return components.day ?? 0
+    }
     
     var body: some View {
         VStack(alignment: .center, spacing: 8) {
@@ -88,13 +100,13 @@ struct widgetEntryView: View {
                                 .truncationMode(.tail)
                             Spacer()
                             HStack(spacing: 4) {
-                                Text("\(item.daysUntilEmpty)")
+                                Text("\(daysLeft(until: item.emptyDate))")
                                     .font(.caption2)
                                     .bold()
                                     .foregroundStyle(colorScheme == .dark ? .white.opacity(0.8) : .secondary)
                                 Image(systemName: "clock")
                                     .font(.caption2)
-                                    .foregroundColor(item.daysUntilEmpty <= 7 ? .red : item.daysUntilEmpty <= 14 ? .orange : .green)
+                                    .foregroundColor(daysLeft(until: item.emptyDate) <= 7 ? .red : daysLeft(until: item.emptyDate) <= 14 ? .orange : .green)
                             }
                         }
                         .padding(.vertical, 6)
@@ -143,27 +155,27 @@ struct widget: Widget {
     widget()
 } timeline: {
     SimpleEntry(date: .now, items: [
-        WidgetItem(id: "1", name: "Toilet Paper", daysUntilEmpty: 2),
-        WidgetItem(id: "2", name: "Coffee Beans", daysUntilEmpty: 5),
-        WidgetItem(id: "3", name: "Dish Soap", daysUntilEmpty: 8)
+        WidgetItem(id: "1", name: "Toilet Paper", emptyDate: Calendar.current.date(byAdding: .day, value: 2, to: Date())!),
+        WidgetItem(id: "2", name: "Coffee Beans", emptyDate: Calendar.current.date(byAdding: .day, value: 5, to: Date())!),
+        WidgetItem(id: "3", name: "Dish Soap", emptyDate: Calendar.current.date(byAdding: .day, value: 8, to: Date())!)
     ])
     SimpleEntry(date: .now, items: [
-        WidgetItem(id: "1", name: "Milk", daysUntilEmpty: 1),
-        WidgetItem(id: "2", name: "Bread", daysUntilEmpty: 3),
-        WidgetItem(id: "3", name: "Laundry Detergent", daysUntilEmpty: 6)
+        WidgetItem(id: "1", name: "Milk", emptyDate: Calendar.current.date(byAdding: .day, value: 1, to: Date())!),
+        WidgetItem(id: "2", name: "Bread", emptyDate: Calendar.current.date(byAdding: .day, value: 3, to: Date())!),
+        WidgetItem(id: "3", name: "Laundry Detergent", emptyDate: Calendar.current.date(byAdding: .day, value: 6, to: Date())!)
     ])
 }
 #Preview(as: .systemSmall) {
     widget()
 } timeline: {
     SimpleEntry(date: .now, items: [
-        WidgetItem(id: "1", name: "Toilet Paper", daysUntilEmpty: 2),
-        WidgetItem(id: "2", name: "Coffee Beans", daysUntilEmpty: 5),
-        WidgetItem(id: "3", name: "Dish Soap", daysUntilEmpty: 8)
+        WidgetItem(id: "1", name: "Toilet Paper", emptyDate: Calendar.current.date(byAdding: .day, value: 2, to: Date())!),
+        WidgetItem(id: "2", name: "Coffee Beans", emptyDate: Calendar.current.date(byAdding: .day, value: 5, to: Date())!),
+        WidgetItem(id: "3", name: "Dish Soap", emptyDate: Calendar.current.date(byAdding: .day, value: 8, to: Date())!)
     ])
     SimpleEntry(date: .now, items: [
-        WidgetItem(id: "1", name: "Milk", daysUntilEmpty: 1),
-        WidgetItem(id: "2", name: "Bread", daysUntilEmpty: 3),
-        WidgetItem(id: "3", name: "Laundry Detergent", daysUntilEmpty: 6)
+        WidgetItem(id: "1", name: "Milk", emptyDate: Calendar.current.date(byAdding: .day, value: 1, to: Date())!),
+        WidgetItem(id: "2", name: "Bread", emptyDate: Calendar.current.date(byAdding: .day, value: 3, to: Date())!),
+        WidgetItem(id: "3", name: "Laundry Detergent", emptyDate: Calendar.current.date(byAdding: .day, value: 6, to: Date())!)
     ])
 }
